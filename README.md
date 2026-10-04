@@ -18,7 +18,18 @@ A mobile-first speaking coach for professionals. Record yourself, get feedback y
 
 Every number on screen carries its source ("from your audio", "from transcript", "from demo transcript"). Nothing is presented as audio analysis unless it came from the audio.
 
-## Run it
+## Run it on your own computer (no hosting, no account)
+
+1. Install Node.js (the "LTS" download at https://nodejs.org). Accept the defaults.
+2. Download this project as a ZIP from GitHub (green **Code** button → **Download ZIP**) and unzip it.
+3. Mac: double-click `start.command` (the first time, right-click → Open). Windows: double-click `start.bat`.
+4. Your browser opens at http://localhost:3000. Keep the black window open while you use the app.
+
+Everything stays on that computer. To add AI keys later, create a file called `.env` next to `package.json` with the lines from `.env.example`.
+
+Browsers only allow the microphone on `localhost` or over HTTPS, so your phone on the same Wi-Fi cannot use the microphone against a plain local address. Use the computer's own browser and microphone, or host it (see `render.yaml`) when you want it on your phone.
+
+## Run it from the command line
 
 ```bash
 npm install
