@@ -138,6 +138,7 @@ async function homeScreen(root, { profile, navigate, config }) {
     recent.length ? h("div", { class: "card" }, h("h3", {}, "Recent"), ...recent.map((s) => h("a", { href: `#/session/${s.id}`, class: "session-item", style: "text-decoration:none;color:inherit" }, h("div", { class: "meta" }, h("div", { class: "title" }, s.title, s.attempt > 1 ? ` · attempt ${s.attempt}` : ""), h("div", { class: "stats" }, fmtDate(s.createdAt))), badgeFor(s.analysis?.transcript))), h("a", { class: "btn sm ghost", href: "#/progress" }, "All recordings")) : null,
 
     h("div", { class: "card soft" }, h("h3", {}, "Role-play"), h("p", { class: "small muted" }, "A stakeholder asks why the launch slipped. Three exchanges, then a debrief."), h("a", { class: "btn block", href: "#/roleplay" }, config.llm ? "Start role-play" : "Start role-play (scripted demo)")),
+    isIosSafariTab() ? h("div", { class: "notice small", style: "background:var(--surface-2)" }, h("strong", {}, "Use it like an app"), "Tap the Share button in Safari, then “Add to Home Screen”. Open it from there so your recordings are kept long-term.") : null,
     !config.stt ? h("p", { class: "tiny" }, "Demo mode: no transcription service is configured. Pauses and timing are real; transcripts come from your browser's speech recognition where supported, otherwise a labelled sample. See Settings.") : null
   );
 }
@@ -189,6 +190,13 @@ async function settingsScreen(root, { settings, config, profile, navigate }) {
 
 function serviceRow(name, on, onText, offText) {
   return h("div", { class: "row between", style: "padding:10px 0;border-top:1px solid var(--line)" }, h("div", { style: "flex:1" }, h("strong", {}, name), h("p", { class: "tiny", style: "margin:2px 0 0" }, on ? onText : offText)), h("span", { class: `badge ${on ? "badge-live" : "badge-demo"}` }, on ? "Live" : "Demo"));
+}
+
+function isIosSafariTab() {
+  const ua = navigator.userAgent;
+  const ios = /iPhone|iPad/.test(ua);
+  const standalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+  return ios && !standalone;
 }
 
 // ---------- boot ----------
