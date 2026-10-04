@@ -9,6 +9,22 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+if not exist .env (
+  echo.
+  echo Optional: add your AI keys. Paste a key and press Enter, or just press Enter to skip.
+  echo Keys are saved only in a file called .env in this folder. Delete that file to start over.
+  echo.
+  set "ANTHROPIC_IN="
+  set "OPENAI_IN="
+  set /p ANTHROPIC_IN="Anthropic key (coaching note + role-play partner): "
+  set /p OPENAI_IN="OpenAI key (transcription; press Enter to use the free browser path): "
+  (
+    echo ANTHROPIC_API_KEY=%ANTHROPIC_IN%
+    echo OPENAI_API_KEY=%OPENAI_IN%
+    echo PORT=3000
+  ) > .env
+  echo Saved.
+)
 if not exist node_modules (
   echo First run: downloading the app's two building blocks ^(takes about a minute^)...
   call npm install --omit=dev
