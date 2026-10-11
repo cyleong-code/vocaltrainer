@@ -30,6 +30,10 @@ Everything stays on that computer. To add AI keys later, create a file called `.
 
 Browsers only allow the microphone on `localhost` or over HTTPS, so your phone on the same Wi-Fi cannot use the microphone against a plain local address. Use the computer's own browser and microphone, or host it (see `render.yaml`) when you want it on your phone.
 
+## Artifact version (no hosting, no key)
+
+`npm run build:artifact` bundles the whole client into `dist/artifact.html` for publishing as a claude.ai artifact. In that version the microphone is unavailable (artifacts refuse it), so a take is an uploaded audio file plus an optional pasted transcript; the coaching note and role-play partner run through the viewer's own Claude account via the artifact runtime's `sample` capability, so no API key is involved. Recordings stay in the viewer's browser. `npm run test:artifact` walks that journey locally with a stubbed runtime.
+
 ## Run it from the command line
 
 ```bash

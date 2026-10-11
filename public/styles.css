@@ -77,9 +77,9 @@ button { font: inherit; }
 .skip:focus { left: 8px; z-index: 100; }
 
 .topbar {
-  position: sticky; top: 0; z-index: 10;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
   display: flex; align-items: center; justify-content: space-between;
-  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  padding: 10px 16px;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
@@ -93,8 +93,8 @@ button { font: inherit; }
 .tabbar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
   display: grid; grid-template-columns: repeat(5, 1fr);
-  height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-  padding-bottom: env(safe-area-inset-bottom);
+  height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--surface); border-top: 1px solid var(--line);
 }
 .tabbar a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-decoration: none; color: var(--text-3); font-size: 0.72rem; font-weight: 600; }
@@ -236,3 +236,10 @@ details summary { cursor: pointer; font-weight: 600; }
 .checklist .ev { display: block; font-size: 0.82rem; color: var(--text-2); margin-top: 2px; }
 ol.steps-list { padding-left: 20px; margin: 0; }
 ol.steps-list li { margin: 6px 0; }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 16px; }
+.modal { background: var(--surface); color: var(--text); border-radius: var(--radius); padding: 18px; max-width: 420px; width: 100%; box-shadow: var(--shadow); }
+.modal p { margin-bottom: 14px; }
+.upload-box { border: 1.5px dashed var(--line); border-radius: var(--radius-s); padding: 16px; text-align: center; }
+.upload-box input[type="file"] { display: none; }
+textarea.transcript-in { width: 100%; min-height: 96px; border: 1px solid var(--line); border-radius: var(--radius-s); padding: 10px; font: inherit; background: var(--surface); color: var(--text); resize: vertical; }

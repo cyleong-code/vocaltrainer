@@ -52,6 +52,7 @@ export function badgeFor(transcript) {
   if (!transcript) return h("span", { class: "badge badge-muted" }, "No transcript");
   if (transcript.source === "demo") return h("span", { class: "badge badge-demo" }, "Demo transcript");
   if (transcript.source === "browser") return h("span", { class: "badge badge-live" }, "Browser transcription");
+  if (transcript.source === "pasted") return h("span", { class: "badge badge-live" }, "Pasted transcript");
   return h("span", { class: "badge badge-live" }, "Transcribed from audio");
 }
 
@@ -62,6 +63,19 @@ export function audioPlayer(blob, label) {
   return a;
 }
 
-export function confirmDialog(message) {
-  return Promise.resolve(window.confirm(message));
+export function confirmDialog(message, { confirmLabel = "Delete" } = {}) {
+  return new Promise((resolve) => {
+    const close = (v) => { overlay.remove(); resolve(v); };
+    const overlay = h("div", { class: "modal-overlay", role: "dialog", "aria-modal": "true", onClick: (e) => e.target === overlay && close(false) },
+      h("div", { class: "modal" },
+        h("p", {}, message),
+        h("div", { class: "grid-2" },
+          h("button", { class: "btn ghost", type: "button", "data-testid": "confirm-no", onClick: () => close(false) }, "Cancel"),
+          h("button", { class: "btn danger", type: "button", "data-testid": "confirm-yes", onClick: () => close(true) }, confirmLabel)
+        )
+      )
+    );
+    document.body.append(overlay);
+    overlay.querySelector('[data-testid="confirm-no"]').focus();
+  });
 }

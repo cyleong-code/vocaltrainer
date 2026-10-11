@@ -50,7 +50,6 @@ async function launch(wav, { grant = true } = {}) {
   const page = await context.newPage();
   page.on("pageerror", (e) => { failures++; console.log("  ✗ page error:", e.message); });
   page.on("console", (m) => m.type() === "error" && console.log("  console.error:", m.text()));
-  page.on("dialog", (d) => d.accept());
   return { browser, page };
 }
 
@@ -126,6 +125,7 @@ async function mainJourney() {
   check((await page.locator('[data-testid="session-item"]').count()) === 2, "progress lists both recordings");
   await page.screenshot({ path: path.join(OUT, "07-progress.png"), fullPage: true });
   await page.locator('[data-testid="session-item"]').first().getByRole("button", { name: /^Delete/ }).click();
+  await page.getByTestId("confirm-yes").click();
   await page.waitForFunction(() => document.querySelectorAll('[data-testid="session-item"]').length === 1);
   check(true, "deleting a recording removes it from the list");
   await page.goto(`${BASE}/#/`);
@@ -141,6 +141,7 @@ async function mainJourney() {
   await page.waitForURL(/#\/session\//, { timeout: 30000 });
   await page.waitForSelector('[data-testid="delete"]');
   await page.getByTestId("delete").click();
+  await page.getByTestId("confirm-yes").click();
   await page.waitForURL(/#\/progress/);
   await page.waitForSelector('[data-testid="session-item"]');
   check((await page.locator('[data-testid="session-item"]').count()) === 1, "delete from feedback screen works");

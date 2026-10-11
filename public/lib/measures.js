@@ -131,6 +131,15 @@ export function ruleBasedTip(measures, audio, exercise) {
   if (!audio?.usable) {
     return { nextStep: "Record again in a quiet spot with the phone about a hand's width from your mouth. The app could not detect speech this time.", observation: "No usable speech was detected, so there is nothing to coach yet.", quote: null, source: "rules", sourceLabel: "Rule-based tip (no AI service configured)" };
   }
+  if (!m.transcriptReal && m.words === 0) {
+    return {
+      observation: `No transcript for this take, so only the timing measures are shown: ${m.pauseCount} audible pause${m.pauseCount === 1 ? "" : "s"}, longest ${m.longestPause?.duration ?? 0}s, ${m.timeToFirstWord ?? 0}s before your first word.`,
+      nextStep: m.timeToFirstWord > 1.5 ? "Next attempt, decide your first sentence before you press record so you start within a second." : m.longPauseCount > 2 ? `You paused for 2 seconds or more ${m.longPauseCount} times. Next attempt, plan your three points first so each pause is a choice.` : "Next attempt, paste the transcript as well so pace and filler words can be counted.",
+      quote: null,
+      source: "rules",
+      sourceLabel: "Rule-based tip from the audio only",
+    };
+  }
   if (!m.transcriptReal) {
     return {
       observation: "The transcript shown is a demo sample, not your words, so pace and filler counts above describe the sample. Your pauses and timing are real.",

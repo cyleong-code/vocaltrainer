@@ -50,6 +50,7 @@ export async function roleplayScreen(root, { navigate, profile, settings, config
       maxSeconds: 90,
       targetSeconds: 30,
       useBrowserRecognition: !config.stt && settings.browserRecognition,
+      upload: Boolean(config.upload),
       onDone: (take) => showReview(take, turnNo),
     });
     render(stage, h("p", { class: "small muted", style: "text-align:center" }, `Your answer ${turnNo} of ${ROLEPLAY.turns}`), widget);
@@ -71,7 +72,7 @@ export async function roleplayScreen(root, { navigate, profile, settings, config
     render(stage, h("div", { class: "row" }, h("span", { class: "spinner" }), h("span", {}, "Transcribing your answer…")));
     let analysis;
     try {
-      analysis = await analyseRecording({ blob: take.blob, duration: take.duration, browserText: take.browserText });
+      analysis = await analyseRecording({ blob: take.blob, duration: take.duration, browserText: take.browserText, pasted: take.pasted });
     } catch (e) {
       render(stage, h("div", { class: "notice error" }, `Could not analyse the answer: ${e.message}`), h("button", { class: "btn", type: "button", onClick: showRecorder }, "Try again"));
       return;

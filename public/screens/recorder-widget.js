@@ -15,7 +15,8 @@ function deniedHelp() {
   return DENIED_HELP.default;
 }
 
-export function recorderWidget({ maxSeconds = 120, targetSeconds, useBrowserRecognition = false, onDone }) {
+export function recorderWidget({ maxSeconds = 120, targetSeconds, useBrowserRecognition = false, upload = false, onDone }) {
+  if (upload) return uploadWidget({ targetSeconds, onDone });
   const root = h("div", { class: "recorder", "data-testid": "recorder" });
   const stateEl = h("div", { class: "rec-state", "data-testid": "rec-state" }, "Ready to record");
   const timerEl = h("div", { class: "rec-timer", "aria-live": "off" }, "00:00");
@@ -110,5 +111,54 @@ export function recorderWidget({ maxSeconds = 120, targetSeconds, useBrowserReco
     if (rec.state === "recording") rec.cancel();
     recognizer?.stop();
   };
+  return root;
+}
+
+// Artifact version: the viewer frame refuses the microphone, so the take is a file the user recorded
+// elsewhere, plus an optional pasted transcript. Decoding the file up front catches non-audio uploads.
+function uploadWidget({ targetSeconds, onDone }) {
+  const root = h("div", { class: "recorder stack", "data-testid": "recorder" });
+  const input = h("input", { type: "file", accept: "audio/*,.m4a,.mp3,.wav,.aac,.ogg,.webm", id: "take-file" });
+  const stateEl = h("div", { class: "rec-state", "data-testid": "rec-state" }, "Ready for a recording");
+  const transcriptIn = h("textarea", { class: "transcript-in", id: "take-transcript", placeholder: "Optional: paste the transcript here. In Voice Memos, open the recording, tap the transcript icon, select all, copy." });
+  const notice = h("div", { class: "notice error", hidden: true, role: "alert" });
+  const chooseBtn = h("button", { class: "btn primary block", type: "button", "data-testid": "choose-file", onClick: () => input.click() }, "Choose a recording");
+  root.append(
+    stateEl,
+    h("div", { class: "upload-box" },
+      h("p", { class: "small", style: "margin:0 0 10px" }, h("strong", {}, "Record in Voice Memos, then upload."), ` Aim for about ${targetSeconds || 45} seconds. Any audio file works.`),
+      input,
+      chooseBtn
+    ),
+    h("label", { class: "small muted", for: "take-transcript" }, "Transcript (optional, for pace and filler words)"),
+    transcriptIn,
+    h("p", { class: "tiny" }, "Without a transcript you still get pauses, speaking time and time to first word from the audio. Pasting the transcript is what unlocks pace, filler and hedging counts."),
+    notice
+  );
+  input.addEventListener("change", async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    notice.hidden = true;
+    stateEl.textContent = "Checking the file…";
+    chooseBtn.disabled = true;
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new Ctx();
+      const decoded = await ctx.decodeAudioData(await file.arrayBuffer());
+      await ctx.close().catch(() => {});
+      const duration = decoded.duration;
+      if (duration > 600) throw new Error("That recording is over ten minutes. Trim it to a few minutes first.");
+      stateEl.textContent = "Recording loaded";
+      onDone({ blob: file, duration, mimeType: file.type || "audio/mp4", browserText: transcriptIn.value.trim(), pasted: Boolean(transcriptIn.value.trim()) });
+    } catch (e) {
+      stateEl.textContent = "Could not read that file";
+      notice.hidden = false;
+      notice.innerHTML = `<strong>That file could not be read as audio.</strong> ${e.message && !/decod/i.test(e.message) ? e.message : "Try a Voice Memos (.m4a), MP3 or WAV file."}`;
+    } finally {
+      chooseBtn.disabled = false;
+      input.value = "";
+    }
+  });
+  root.destroy = () => {};
   return root;
 }

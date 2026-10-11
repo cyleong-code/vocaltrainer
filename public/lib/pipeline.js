@@ -7,7 +7,7 @@ import { getConfig, transcribeOnServer, requestCoachNote } from "./api.js";
 import { DEMO_TRANSCRIPT } from "./content.js";
 import { db, newId } from "./db.js";
 
-export async function analyseRecording({ blob, duration, browserText, exercise, onStep }) {
+export async function analyseRecording({ blob, duration, browserText, pasted = false, exercise, onStep }) {
   const step = (s) => onStep && onStep(s);
   const config = await getConfig();
   const notes = [];
@@ -32,9 +32,16 @@ export async function analyseRecording({ blob, duration, browserText, exercise, 
     }
   }
   if (!transcript && browserText && browserText.split(/\s+/).length >= 3) {
-    transcript = { text: browserText, words: null, source: "browser", sourceLabel: "Transcribed by your browser's speech recognition (no word timings; fillers may be dropped)", real: true };
+    transcript = pasted
+      ? { text: browserText, words: null, source: "pasted", sourceLabel: "Transcript you pasted (from Voice Memos or another app; fillers may have been removed by that app)", real: true }
+      : { text: browserText, words: null, source: "browser", sourceLabel: "Transcribed by your browser's speech recognition (no word timings; fillers may be dropped)", real: true };
   }
-  if (!transcript && audio.usable) {
+  if (!transcript && audio.usable && config.upload) {
+    // Artifact version without a pasted transcript: say so rather than show a sample as if it were theirs.
+    transcript = null;
+    notes.push("No transcript was pasted, so pace, filler and hedging counts are not available for this take.");
+  }
+  if (!transcript && audio.usable && !config.upload) {
     transcript = { text: DEMO_TRANSCRIPT, words: null, source: "demo", sourceLabel: "Demo transcript: a sample, not what you said. Pace and filler counts below describe the sample.", real: false };
     if (!config.stt) notes.push("No transcription service is configured, so a demo transcript is shown.");
   }

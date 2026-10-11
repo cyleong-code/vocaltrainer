@@ -33,7 +33,9 @@ export async function recordScreen(root, { kind, exerciseId, lessonId, parentId,
   let take = null;
   let widget = null;
 
-  const transcriptNote = config.stt
+  const transcriptNote = config.upload
+    ? "The audio stays in this browser. If you pasted a transcript, the coach reads that text and the measured numbers; the audio itself is never sent anywhere."
+    : config.stt
     ? "When you tap Analyse, this recording is sent once to the transcription service and not stored there."
     : settings.browserRecognition && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
       ? "Transcription will use your browser's speech recognition while you record. Audio is processed by your browser vendor; nothing is sent to our server."
@@ -45,6 +47,7 @@ export async function recordScreen(root, { kind, exerciseId, lessonId, parentId,
       maxSeconds: 150,
       targetSeconds: spec.seconds,
       useBrowserRecognition: !config.stt && settings.browserRecognition,
+      upload: Boolean(config.upload),
       onDone: (result) => {
         take = result;
         showReview();
@@ -58,10 +61,10 @@ export async function recordScreen(root, { kind, exerciseId, lessonId, parentId,
       stage,
       h("div", { class: "card" },
         h("h3", {}, "Your take"),
-        h("p", { class: "small muted" }, `${Math.round(take.duration)} seconds. Listen back before analysing; nothing has been saved yet.`),
+        h("p", { class: "small muted" }, `${Math.round(take.duration)} seconds. Listen back before analysing; nothing has been saved yet.${take.pasted ? " Transcript pasted." : config.upload ? " No transcript pasted: pace and filler counts will not be available." : ""}`),
         audioPlayer(take.blob, "Playback of your take"),
         h("div", { class: "grid-2" },
-          h("button", { class: "btn ghost", type: "button", onClick: () => { take = null; showRecorder(); } }, "Record again"),
+          h("button", { class: "btn ghost", type: "button", onClick: () => { take = null; showRecorder(); } }, config.upload ? "Choose another" : "Record again"),
           h("button", { class: "btn primary", type: "button", "data-testid": "analyse", onClick: analyse }, "Save & analyse")
         ),
         h("p", { class: "tiny" }, transcriptNote)
@@ -81,7 +84,7 @@ export async function recordScreen(root, { kind, exerciseId, lessonId, parentId,
       }
     };
     try {
-      const analysis = await analyseRecording({ blob: take.blob, duration: take.duration, browserText: take.browserText, exercise: spec.exercise, onStep: mark });
+      const analysis = await analyseRecording({ blob: take.blob, duration: take.duration, browserText: take.browserText, pasted: take.pasted, exercise: spec.exercise, onStep: mark });
       mark("save");
       const session = await saveSession({
         kind: sessionKind,

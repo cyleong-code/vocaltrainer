@@ -1,7 +1,7 @@
 // Router and shell. Screens live in /screens; shared logic in /lib.
 import { h, render, toast, badgeFor, fmtDate } from "./lib/ui.js";
 import { db } from "./lib/db.js";
-import { getConfig } from "./lib/api.js";
+import { getConfig, ARTIFACT_MODE } from "./lib/api.js";
 import { GOALS, SITUATIONS, BASELINE, pickDailyExercise, goalById, situationById } from "./lib/content.js";
 import { browserRecognitionSupported } from "./lib/recorder.js";
 import { LESSONS, lessonById, nextLesson } from "./lib/lessons.js";
@@ -15,9 +15,19 @@ const DEFAULT_SETTINGS = { browserRecognition: true, readAloud: true };
 let cleanup = null;
 let routeSeq = 0;
 
+// Inside the artifact viewer the page's own URL is not ours to change, so routes live in memory there.
+let currentHash = "#/";
 function navigate(hash) {
+  if (ARTIFACT_MODE) {
+    currentHash = hash;
+    route();
+    return;
+  }
   if (location.hash === hash) route();
   else location.hash = hash;
+}
+function readHash() {
+  return ARTIFACT_MODE ? currentHash : location.hash;
 }
 
 async function loadState() {
@@ -32,6 +42,7 @@ function setTab(name) {
 function serviceBadge(config) {
   const el = document.getElementById("service-badge");
   if (config.offline) { el.className = "badge badge-warn"; el.textContent = "Server offline"; return; }
+  if (config.artifact) { el.className = config.llm ? "badge badge-live" : "badge badge-demo"; el.textContent = config.llm ? "Claude live · upload audio" : "Upload audio · demo coach"; el.title = "Artifact version: recordings are uploaded files; the coach runs through your Claude account."; return; }
   if (config.stt && config.llm) { el.className = "badge badge-live"; el.textContent = "Live services"; }
   else if (config.stt || config.llm) { el.className = "badge badge-warn"; el.textContent = config.stt ? "Transcription live · AI demo" : "AI live · transcription demo"; }
   else { el.className = "badge badge-demo"; el.textContent = "Demo mode"; }
@@ -44,7 +55,7 @@ async function route() {
   const state = await loadState();
   if (seq !== routeSeq) return; // a newer navigation happened while loading
   serviceBadge(state.config);
-  const [path, query] = (location.hash.slice(1) || "/").split("?");
+  const [path, query] = (readHash().slice(1) || "/").split("?");
   const params = new URLSearchParams(query || "");
   const seg = path.split("/").filter(Boolean);
   const ctx = { ...state, navigate };
@@ -220,8 +231,9 @@ async function settingsScreen(root, { settings, config, profile, navigate }) {
     h("div", { class: "card" },
       h("h2", {}, "Services"),
       h("p", { class: "small muted" }, "Set on the server through environment variables. The app tells you on every result which one produced it."),
-      serviceRow("Speech-to-text", config.stt, "OpenAI Whisper, used only when you tap Analyse.", "Not configured: transcripts come from your browser's speech recognition where available, otherwise a labelled demo sample. Pauses and timing are always measured from the real audio."),
-      serviceRow("AI coach and role-play partner", config.llm, "Anthropic Claude writes the coaching note and plays the role-play partner, from the transcript and measures only.", "Not configured: tips are rule-based from the measures, and the role-play partner follows a fixed script.")
+      config.artifact ? h("div", { class: "notice small", style: "background:var(--surface-2)" }, h("strong", {}, "Artifact version"), "The microphone is not available inside Claude artifacts, so you record in another app (Voice Memos on iPhone) and upload the file. Paste its transcript for pace and filler measures.") : null,
+      serviceRow("Speech-to-text", config.stt, "OpenAI Whisper, used only when you tap Analyse.", config.artifact ? "Not available in the artifact version. Paste the transcript from Voice Memos (iOS 18 and later shows one) when you upload a recording." : "Not configured: transcripts come from your browser's speech recognition where available, otherwise a labelled demo sample. Pauses and timing are always measured from the real audio."),
+      serviceRow("AI coach and role-play partner", config.llm, config.artifact ? "Claude, through your own Claude account, writes the coaching note and plays the role-play partner from the transcript and measures only. The first use asks your permission." : "Anthropic Claude writes the coaching note and plays the role-play partner, from the transcript and measures only.", config.artifact ? "Claude is not available to this page right now. Tips are rule-based and the role-play partner is scripted." : "Not configured: tips are rule-based from the measures, and the role-play partner follows a fixed script.")
     ),
     h("div", { class: "card stack" },
       h("h2", {}, "Transcription"),
@@ -259,5 +271,11 @@ try {
   const t = localStorage.getItem("theme");
   if (t && t !== "auto") document.documentElement.dataset.theme = t;
 } catch {}
-window.addEventListener("hashchange", route);
+window.addEventListener("hashchange", () => !ARTIFACT_MODE && route());
+document.addEventListener("click", (e) => {
+  const a = e.target.closest?.('a[href^="#/"]');
+  if (!a) return;
+  e.preventDefault();
+  navigate(a.getAttribute("href"));
+});
 route();
