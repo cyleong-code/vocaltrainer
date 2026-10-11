@@ -85,7 +85,7 @@ button { font: inherit; }
   border-bottom: 1px solid var(--line);
 }
 .brand { font-weight: 700; color: var(--text); text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-size: 1.05rem; }
-.brand-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); display: inline-block; }
+.brand-dot { width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(135deg, #2ad1c6, #7c5cff 55%, #ff5ea8); box-shadow: 0 0 10px rgba(124, 92, 255, 0.45); display: inline-block; }
 
 .screen { max-width: 640px; margin: 0 auto; padding: 16px 16px 24px; }
 .screen:focus { outline: none; }
