@@ -61,6 +61,7 @@ export async function fetchCoachNote(session, previous) {
     goal: session.goalTitle || "",
     situation: session.situationTitle || "",
     exercise: session.promptText || "",
+    lesson: session.lesson ? { title: session.lesson.title, topic: session.lesson.topic, checklist: session.lesson.checklist, selfCheck: session.lesson.measured === false } : null,
     previous: previous ? publicMeasures(previous.analysis.measures) : null,
   };
   return requestCoachNote(payload);
@@ -74,6 +75,9 @@ function publicMeasures(m) {
     fillersPerMinute: m.fillersPerMin,
     fillerWords: m.fillers.slice(0, 12).map((f) => f.word),
     repeatedWords: m.repeats.slice(0, 6).map((r) => r.context.hit),
+    hedgeCount: m.hedgeCount,
+    hedgingPhrases: (m.hedges || []).slice(0, 10).map((h) => h.word),
+    secondsToFirstWord: m.timeToFirstWord,
     audiblePauses: m.pauseCount,
     pausesOver2s: m.longPauseCount,
     longestPauseSeconds: m.longestPause?.duration ?? null,

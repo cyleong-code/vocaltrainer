@@ -4,6 +4,7 @@ import { db } from "./lib/db.js";
 import { getConfig } from "./lib/api.js";
 import { GOALS, SITUATIONS, BASELINE, pickDailyExercise, goalById, situationById } from "./lib/content.js";
 import { browserRecognitionSupported } from "./lib/recorder.js";
+import { LESSONS, lessonById, nextLesson } from "./lib/lessons.js";
 import { recordScreen } from "./screens/record.js";
 import { sessionScreen, compareScreen } from "./screens/feedback.js";
 import { progressScreen } from "./screens/progress.js";
@@ -53,7 +54,9 @@ async function route() {
     switch (seg[0]) {
       case "onboarding": setTab("home"); return onboardingScreen(main, ctx);
       case "baseline": setTab("home"); return baselineScreen(main, ctx);
-      case "record": setTab("home"); cleanup = await recordScreen(main, { ...ctx, kind: seg[1] || "free", exerciseId: params.get("exercise"), parentId: params.get("parent") }); return;
+      case "record": setTab(seg[1] === "lesson" ? "lessons" : "home"); cleanup = await recordScreen(main, { ...ctx, kind: seg[1] || "free", exerciseId: params.get("exercise"), lessonId: params.get("lesson"), parentId: params.get("parent") }); return;
+      case "lessons": setTab("lessons"); return lessonsScreen(main, ctx);
+      case "lesson": setTab("lessons"); return lessonScreen(main, { ...ctx, id: seg[1] });
       case "session": setTab("progress"); return sessionScreen(main, { ...ctx, id: seg[1] });
       case "compare": setTab("progress"); return compareScreen(main, { ...ctx, aId: seg[1], bId: seg[2] });
       case "progress": setTab("progress"); return progressScreen(main, ctx);
@@ -116,6 +119,8 @@ async function homeScreen(root, { profile, navigate, config }) {
   const exercise = pickDailyExercise(profile.goal, lastReal);
   const todayDone = sessions.find((s) => s.exerciseId === exercise.id && new Date(s.createdAt).toDateString() === new Date().toDateString());
   const recent = [...sessions].reverse().slice(0, 3);
+  const lesson = nextLesson(sessions, profile.goal);
+  const lessonsDone = new Set(sessions.filter((s) => s.lessonId).map((s) => s.lessonId)).size;
 
   render(
     root,
@@ -123,8 +128,8 @@ async function homeScreen(root, { profile, navigate, config }) {
 
     !baseline.length
       ? h("div", { class: "card" }, h("span", { class: "badge badge-accent" }, "Step 1"), h("h2", { style: "margin-top:8px" }, "Record your baseline"), h("p", { class: "muted" }, "A first recording to measure everything else against. About a minute."), h("a", { class: "btn primary block", href: "#/baseline", "data-testid": "start-baseline" }, "Start baseline"))
-      : h("div", { class: "card" },
-          h("div", { class: "row between" }, h("h2", {}, "Today's exercise"), todayDone ? h("span", { class: "badge badge-live" }, "Done today") : h("span", { class: "badge badge-muted" }, `~${exercise.seconds}s`)),
+      : h("div", { class: "card soft" },
+          h("div", { class: "row between" }, h("h2", {}, "Daily drill"), todayDone ? h("span", { class: "badge badge-live" }, "Done today") : h("span", { class: "badge badge-muted" }, `~${exercise.seconds}s`)),
           h("h3", {}, exercise.title),
           h("div", { class: "prompt-box" }, exercise.prompt),
           lastReal && exercise.id.startsWith("fill") && profile.goal !== "fillers" ? h("p", { class: "tiny" }, "Chosen because your last transcript showed several filler words per minute.") : null,
@@ -132,6 +137,16 @@ async function homeScreen(root, { profile, navigate, config }) {
           h("a", { class: "btn primary block", href: `#/record/exercise?exercise=${exercise.id}`, "data-testid": "start-exercise", style: "margin-top:10px" }, todayDone ? "Do it again" : "Record"),
           todayDone ? h("a", { class: "btn ghost block", href: `#/session/${todayDone.id}`, style: "margin-top:8px" }, "See today's feedback") : null
         ),
+
+    baseline.length && lesson
+      ? h("div", { class: "card" },
+          h("div", { class: "row between" }, h("h2", {}, "Today's lesson"), h("span", { class: "badge badge-muted" }, `${lessonsDone} of ${LESSONS.length} done`)),
+          h("h3", {}, `${lesson.n}. ${lesson.title}`),
+          h("p", { class: "small muted" }, `${lesson.topic} · about ${lesson.minutes} minutes`),
+          h("p", { class: "small" }, lesson.note[0]),
+          h("div", { class: "grid-2", style: "margin-top:10px" }, h("a", { class: "btn primary", href: `#/lesson/${lesson.id}`, "data-testid": "start-lesson" }, "Open lesson"), h("a", { class: "btn ghost", href: "#/lessons" }, "All lessons"))
+        )
+      : baseline.length ? h("div", { class: "card soft" }, h("h3", {}, "All 15 lessons done"), h("p", { class: "small muted" }, "Repeat any lesson from the Lessons tab, or keep up the daily drill below.")) : null,
 
     baseline.length ? h("div", { class: "card soft" }, h("div", { class: "row between" }, h("div", {}, h("h3", {}, "Baseline"), h("p", { class: "tiny", style: "margin:0" }, `${baseline.length} recorded · first on ${fmtDate(baseline[0].createdAt)}`)), h("a", { class: "btn sm", href: `#/session/${baseline[baseline.length - 1].id}` }, "Open")), h("a", { class: "btn sm ghost", href: "#/baseline", style: "margin-top:8px" }, "Record another baseline")) : null,
 
@@ -142,6 +157,46 @@ async function homeScreen(root, { profile, navigate, config }) {
     !config.stt ? h("p", { class: "tiny" }, "Demo mode: no transcription service is configured. Pauses and timing are real; transcripts come from your browser's speech recognition where supported, otherwise a labelled sample. See Settings.") : null
   );
 }
+
+// ---------- Lessons ----------
+async function lessonsScreen(root) {
+  const sessions = await db.listSessions();
+  const done = new Set(sessions.filter((s) => s.lessonId).map((s) => s.lessonId));
+  render(
+    root,
+    h("h1", {}, "Lessons"),
+    h("p", { class: "muted small" }, "Fifteen short lessons. Each has a two-minute read, three things to do, and a recorded exercise with feedback. Do them in order or jump to what you need this week."),
+    h("div", { class: "card" }, ...LESSONS.map((l) => h("a", { class: `lesson-row ${done.has(l.id) ? "done" : ""}`, href: `#/lesson/${l.id}`, "data-testid": `lesson-${l.id}` },
+      h("span", { class: "num" }, done.has(l.id) ? "✓" : l.n),
+      h("div", { class: "meta" }, h("strong", {}, l.title), h("span", {}, `${l.topic} · ${l.minutes} min${l.measured === false ? " · self-check" : ""}`))
+    ))),
+    h("p", { class: "tiny" }, "Lessons marked self-check cover skills the app cannot hear, such as body language. They include a spoken exercise but no claim to measure the skill itself.")
+  );
+}
+
+async function lessonScreen(root, { id, config }) {
+  const l = lessonById(id);
+  if (!l) return navigate("#/lessons");
+  const sessions = (await db.listSessions()).filter((s) => s.lessonId === l.id).sort((a, b) => b.createdAt - a.createdAt);
+  render(
+    root,
+    h("div", { class: "row between" }, h("a", { href: "#/lessons", class: "btn sm ghost" }, "← Lessons"), h("span", { class: "badge badge-accent" }, `Lesson ${l.n} of ${LESSONS.length}`)),
+    h("h1", {}, l.title),
+    h("p", { class: "muted small" }, `${l.topic} · about ${l.minutes} minutes${l.measured === false ? " · self-check lesson" : ""}`),
+    h("div", { class: "card" }, ...l.note.map((para) => h("p", {}, para))),
+    h("div", { class: "card soft" }, h("h3", {}, "Do these three things"), h("ol", { class: "steps-list" }, ...l.steps.map((st) => h("li", {}, st)))),
+    h("div", { class: "card" },
+      h("h3", {}, "The exercise"),
+      h("div", { class: "prompt-box" }, l.exercise.prompt),
+      h("p", { class: "tiny", style: "margin-top:8px" }, `About ${l.exercise.seconds} seconds. Afterwards you get ${l.measured === false ? "your audio measures and a self-check list" : `measures for ${l.measures.map((m) => MEASURE_NAMES[m]).join(", ")}, plus a checklist${config.llm ? " the AI coach checks against your transcript" : " for self-review"}`}.`),
+      h("a", { class: "btn primary block", href: `#/record/lesson?lesson=${l.id}`, "data-testid": "record-lesson" }, sessions.length ? "Record it again" : "Record the exercise")
+    ),
+    h("div", { class: "card soft" }, h("h3", {}, "Checklist"), h("ul", { class: "checklist" }, ...l.checklist.map((c) => h("li", {}, h("span", { class: "mark" }, "·"), h("span", {}, c))))),
+    sessions.length ? h("div", { class: "card" }, h("h3", {}, "Your attempts"), ...sessions.map((s) => h("a", { href: `#/session/${s.id}`, class: "session-item", style: "text-decoration:none;color:inherit" }, h("div", { class: "meta" }, h("div", { class: "title" }, fmtDate(s.createdAt)), h("div", { class: "stats" }, s.analysis?.audio?.usable ? `${s.analysis.measures.pauseCount} pauses · ${s.analysis.measures.fillerCount} fillers${s.analysis.measures.wpm != null ? ` · ${s.analysis.measures.wpm} wpm` : ""}` : "no speech detected")), badgeFor(s.analysis?.transcript)))) : null
+  );
+}
+
+const MEASURE_NAMES = { pace: "pace", pauses: "pauses", fillers: "filler words", hedges: "hedging phrases", firstWord: "time to first word" };
 
 function baselineScreen(root) {
   render(

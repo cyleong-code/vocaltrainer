@@ -130,7 +130,7 @@ async function mainJourney() {
   check(true, "deleting a recording removes it from the list");
   await page.goto(`${BASE}/#/`);
   await page.waitForSelector('[data-testid="start-exercise"]');
-  check(/Today's exercise/.test(await page.locator("#main").innerText()), "home shows today's exercise after baseline");
+  check(/Daily drill/.test(await page.locator("#main").innerText()), "home shows the daily drill after baseline");
   await page.screenshot({ path: path.join(OUT, "08-home-exercise.png"), fullPage: true });
 
   // Delete from feedback screen
@@ -144,6 +144,28 @@ async function mainJourney() {
   await page.waitForURL(/#\/progress/);
   await page.waitForSelector('[data-testid="session-item"]');
   check((await page.locator('[data-testid="session-item"]').count()) === 1, "delete from feedback screen works");
+
+  // Lessons
+  await page.goto(`${BASE}/#/lessons`);
+  await page.waitForSelector('[data-testid="lesson-L01"]');
+  check((await page.locator(".lesson-row").count()) === 15, "lessons tab lists 15 lessons");
+  await page.getByTestId("lesson-L03").click();
+  await page.waitForSelector('[data-testid="record-lesson"]');
+  check(/Do these three things/.test(await page.locator("#main").innerText()), "lesson page shows the three steps");
+  await page.screenshot({ path: path.join(OUT, "15-lesson.png"), fullPage: true });
+  await page.getByTestId("record-lesson").click();
+  await page.waitForSelector('[data-testid="rec-button"]');
+  await recordTake(page, 5);
+  await page.getByTestId("analyse").click();
+  await page.waitForURL(/#\/session\//, { timeout: 30000 });
+  await page.waitForSelector('[data-testid="lesson-checklist"]');
+  const lessonText = await page.locator("#main").innerText();
+  check(/Lesson 3: Sounding sure/.test(lessonText), "feedback shows the lesson checklist card");
+  check(/hedging phrase/.test(lessonText) && /time to first word/.test(lessonText), "feedback shows hedging and time-to-first-word measures");
+  await page.screenshot({ path: path.join(OUT, "16-lesson-feedback.png"), fullPage: true });
+  await page.goto(`${BASE}/#/`);
+  await page.waitForSelector('[data-testid="start-lesson"]');
+  check(/1 of 15 done/.test(await page.locator("#main").innerText()), "home shows lesson progress and next lesson");
 
   // Role-play (scripted partner in demo mode)
   await page.goto(`${BASE}/#/roleplay`);

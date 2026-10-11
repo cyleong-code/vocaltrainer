@@ -47,7 +47,9 @@ export async function sessionScreen(root, { id, navigate, config }) {
             measureCard(m.pauseCount, `audible pause${m.pauseCount === 1 ? "" : "s"} (≥0.6s)`, "from your audio"),
             measureCard(m.longestPause?.duration ? `${m.longestPause.duration}s` : "–", m.longestPause?.duration ? `longest pause, at ${fmtSec(m.longestPause.at)}` : "longest pause", "from your audio"),
             measureCard(fmtSec(m.speakingSpan), "speaking time", "from your audio"),
-            measureCard(m.words, "words", demo ? "from demo transcript" : "from transcript", demo ? "demo" : "")
+            measureCard(m.words, "words", demo ? "from demo transcript" : "from transcript", demo ? "demo" : ""),
+            measureCard(m.hedgeCount ?? 0, `hedging phrase${m.hedgeCount === 1 ? "" : "s"}`, demo ? "needs a real transcript" : "from transcript", demo ? "demo" : ""),
+            measureCard(m.timeToFirstWord != null ? `${m.timeToFirstWord}s` : "–", "time to first word", "from your audio")
           ),
           m.wpm != null ? h("p", { class: "tiny", style: "margin-top:10px" }, paceContext(m)) : null
         ),
@@ -60,6 +62,8 @@ export async function sessionScreen(root, { id, navigate, config }) {
           examplesBlock(m, demo)
         )
       : null,
+
+    a.audio?.usable && session.lesson ? lessonCard(session, a) : null,
 
     a.audio?.usable ? h("div", { class: "card" }, h("h2", {}, "One thing to try next"), tipBox) : null,
 
@@ -89,6 +93,8 @@ export async function sessionScreen(root, { id, navigate, config }) {
         session.analysis.coach = coach;
         await db.saveSession(session);
         renderTip(tipBox, coach, true, a.tip);
+        const old = root.querySelector('[data-testid="lesson-checklist"]');
+        if (old && session.lesson) old.replaceWith(lessonCard(session, session.analysis));
       }
     } catch {
       loading.textContent = "The AI coach did not respond. The rule-based tip above is shown instead.";
@@ -96,12 +102,31 @@ export async function sessionScreen(root, { id, navigate, config }) {
   }
 }
 
+// Checklist for the lesson this recording belongs to. The AI coach fills in met / not met with quotes;
+// without it, the list is shown for self-review and says so.
+function lessonCard(session, a) {
+  const l = session.lesson;
+  const assessed = a.coach?.checklist;
+  const items = l.checklist.map((text, i) => {
+    const r = assessed?.[i];
+    const cls = r?.status === "met" ? "met" : r?.status === "not met" ? "notmet" : "";
+    const glyph = r?.status === "met" ? "✓" : r?.status === "not met" ? "✗" : "?";
+    return h("li", {}, h("span", { class: `mark ${cls}` }, glyph), h("span", {}, text, r?.evidence ? h("span", { class: "ev" }, r.status === "unclear" ? r.evidence : `“${r.evidence}”`) : null));
+  });
+  return h("div", { class: "card", "data-testid": "lesson-checklist" },
+    h("div", { class: "row between" }, h("h2", {}, `Lesson ${l.n}: ${l.title}`), h("a", { class: "btn sm ghost", href: `#/lesson/${l.id}` }, "Lesson")),
+    !l.measured ? h("div", { class: "notice small", style: "background:var(--surface-2)" }, "This lesson's skill cannot be observed from audio. Tick the items yourself honestly.") : null,
+    h("ul", { class: "checklist" }, ...items),
+    h("p", { class: "tiny" }, assessed ? "Checked by the AI coach against your transcript. “?” means it could not tell from the words alone." : "Self-check: read your transcript above and judge each item. With an AI key configured, the coach checks these for you with quotes.")
+  );
+}
+
 function retryButton(session, navigate) {
   return h("button", { class: "btn primary", type: "button", "data-testid": "retry", onClick: () => navigate(`#/record/retry?parent=${session.id}`) }, "Try again");
 }
 
 function kindLabel(kind) {
-  return { baseline: "Baseline", exercise: "Exercise", retry: "Retry", roleplay: "Role-play" }[kind] || "Recording";
+  return { baseline: "Baseline", exercise: "Exercise", retry: "Retry", roleplay: "Role-play", lesson: "Lesson" }[kind] || "Recording";
 }
 
 function paceContext(m) {

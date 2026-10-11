@@ -4,9 +4,14 @@ import { recorderWidget } from "./recorder-widget.js";
 import { analyseRecording, saveSession } from "../lib/pipeline.js";
 import { db } from "../lib/db.js";
 import { BASELINE, EXERCISES } from "../lib/content.js";
+import { lessonById } from "../lib/lessons.js";
 
-export function resolvePrompt({ kind, exerciseId, parent }) {
-  if (parent) return { title: parent.title, prompt: parent.promptText, seconds: parent.targetSeconds || 45, passage: parent.passageText || null, exerciseId: parent.exerciseId, exercise: findExercise(parent.exerciseId) };
+export function resolvePrompt({ kind, exerciseId, lessonId, parent }) {
+  if (parent) return { title: parent.title, prompt: parent.promptText, seconds: parent.targetSeconds || 45, passage: parent.passageText || null, exerciseId: parent.exerciseId, exercise: findExercise(parent.exerciseId), lesson: parent.lesson || null };
+  if (kind === "lesson") {
+    const l = lessonById(lessonId);
+    if (l) return { title: l.title, prompt: l.exercise.prompt, seconds: l.exercise.seconds, passage: null, lesson: l, exercise: { stretch: null } };
+  }
   if (kind === "baseline-intro") return { title: BASELINE.intro.title, prompt: BASELINE.intro.prompt, seconds: BASELINE.intro.seconds, passage: null };
   if (kind === "baseline-passage") return { title: BASELINE.passage.title, prompt: BASELINE.passage.prompt, seconds: BASELINE.passage.seconds, passage: BASELINE.passage.text };
   const ex = findExercise(exerciseId);
@@ -18,11 +23,11 @@ function findExercise(id) {
   return Object.values(EXERCISES).flat().find((e) => e.id === id) || null;
 }
 
-export async function recordScreen(root, { kind, exerciseId, parentId, navigate, profile, settings, config }) {
+export async function recordScreen(root, { kind, exerciseId, lessonId, parentId, navigate, profile, settings, config }) {
   const parent = parentId ? await db.getSession(parentId) : null;
-  const spec = resolvePrompt({ kind, exerciseId, parent });
-  const sessionKind = parent ? "retry" : kind.startsWith("baseline") ? "baseline" : "exercise";
-  const attemptLabel = parent ? `Attempt ${(await countAttempts(parent)) + 1}` : sessionKind === "baseline" ? "Baseline" : "Today's exercise";
+  const spec = resolvePrompt({ kind, exerciseId, lessonId, parent });
+  const sessionKind = parent ? "retry" : kind.startsWith("baseline") ? "baseline" : kind === "lesson" ? "lesson" : "exercise";
+  const attemptLabel = parent ? `Attempt ${(await countAttempts(parent)) + 1}` : sessionKind === "baseline" ? "Baseline" : sessionKind === "lesson" ? `Lesson ${spec.lesson.n}` : "Today's exercise";
 
   const stage = h("div", { class: "stack" });
   let take = null;
@@ -89,7 +94,7 @@ export async function recordScreen(root, { kind, exerciseId, parentId, navigate,
         duration: take.duration,
         analysis,
         profile,
-        extra: { targetSeconds: spec.seconds, passageText: spec.passage },
+        extra: { targetSeconds: spec.seconds, passageText: spec.passage, lessonId: spec.lesson?.id || null, lesson: spec.lesson ? { id: spec.lesson.id, n: spec.lesson.n, title: spec.lesson.title, topic: spec.lesson.topic, checklist: spec.lesson.checklist, measured: spec.lesson.measured !== false, steps: spec.lesson.steps } : null },
       });
       toast("Saved on this device");
       navigate(`#/session/${session.id}`);
@@ -103,8 +108,9 @@ export async function recordScreen(root, { kind, exerciseId, parentId, navigate,
 
   render(
     root,
-    h("div", { class: "row between" }, h("a", { href: parent ? `#/session/${parent.id}` : "#/", class: "btn sm ghost" }, "← Back"), h("span", { class: "badge badge-accent" }, attemptLabel)),
+    h("div", { class: "row between" }, h("a", { href: parent ? `#/session/${parent.id}` : spec.lesson ? `#/lesson/${spec.lesson.id}` : "#/", class: "btn sm ghost" }, "← Back"), h("span", { class: "badge badge-accent" }, attemptLabel)),
     h("h1", {}, spec.title),
+    spec.lesson ? h("div", { class: "card soft" }, h("h3", {}, "Do these three things"), h("ol", { class: "steps-list small" }, ...spec.lesson.steps.map((st) => h("li", {}, st)))) : null,
     spec.passage
       ? h("div", { class: "stack" }, h("p", { class: "muted" }, spec.prompt), h("div", { class: "prompt-box passage" }, spec.passage))
       : h("div", { class: "prompt-box" }, spec.prompt),

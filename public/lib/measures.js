@@ -3,6 +3,8 @@
 
 const CORE_FILLERS = ["um", "umm", "uh", "uhh", "er", "erm", "ah", "hmm", "mm"];
 const PHRASE_FILLERS = ["you know", "i mean", "sort of", "kind of", "basically", "actually", "literally", "like"];
+// Hedging: words that soften a claim. Counted separately from fillers; some hedging is appropriate.
+const HEDGE_PHRASES = ["i think", "i guess", "i feel like", "i suppose", "sort of", "kind of", "maybe", "perhaps", "probably", "possibly", "a bit", "a little bit", "somewhat", "might be", "could be"];
 
 export function tokenize(text) {
   return (text || "")
@@ -46,6 +48,23 @@ function isFillerLike(tokens, i) {
   return true;
 }
 
+export function findHedges(text) {
+  const tokens = tokenize(text);
+  const hits = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const three = tokens.slice(i, i + 3).join(" ");
+    const two = tokens.slice(i, i + 2).join(" ");
+    const one = tokens[i];
+    const hit = HEDGE_PHRASES.includes(three) ? three : HEDGE_PHRASES.includes(two) ? two : HEDGE_PHRASES.includes(one) ? one : null;
+    if (hit) {
+      const len = hit.split(" ").length;
+      hits.push({ word: hit, index: i, context: snippet(tokens, i, len) });
+      i += len - 1;
+    }
+  }
+  return hits;
+}
+
 export function findRepeats(text) {
   const tokens = tokenize(text);
   const hits = [];
@@ -82,6 +101,7 @@ export function computeMeasures({ transcript, audio }) {
   const wpm = real && minutes > 0 && words > 0 ? Math.round(words / minutes) : null;
   const fillers = findFillers(transcript?.text);
   const repeats = findRepeats(transcript?.text);
+  const hedges = real ? findHedges(transcript?.text) : [];
   const fillersPerMin = real && minutes > 0 ? Math.round((fillers.length / minutes) * 10) / 10 : null;
   return {
     words,
@@ -91,6 +111,9 @@ export function computeMeasures({ transcript, audio }) {
     fillerCount: fillers.length,
     fillersPerMin,
     repeats,
+    hedges,
+    hedgeCount: hedges.length,
+    timeToFirstWord: audio?.usable ? audio.leadSilence : null,
     sentences: sentenceStats(transcript?.text),
     pauseCount: audio?.pauseCount ?? 0,
     longPauseCount: audio?.longPauseCount ?? 0,
@@ -211,6 +234,8 @@ export function compareAttempts(a, b) {
     { key: "fillersPerMin", label: "Fillers per minute", a: a.fillersPerMin, b: b.fillersPerMin, unit: "" },
     { key: "pauseCount", label: "Audible pauses", a: a.pauseCount, b: b.pauseCount, unit: "" },
     { key: "longestPause", label: "Longest pause", a: a.longestPause?.duration, b: b.longestPause?.duration, unit: "s" },
+    { key: "hedgeCount", label: "Hedging phrases", a: a.hedgeCount, b: b.hedgeCount, unit: "" },
+    { key: "timeToFirstWord", label: "Time to first word", a: a.timeToFirstWord, b: b.timeToFirstWord, unit: "s" },
     { key: "speakingSpan", label: "Speaking time", a: a.speakingSpan, b: b.speakingSpan, unit: "s" },
     { key: "words", label: "Words", a: a.words, b: b.words, unit: "" },
   ];

@@ -10,13 +10,14 @@ A mobile-first speaking coach for professionals. Record yourself, get feedback y
 |---|---|---|
 | Onboarding | Choose a goal and a situation | Real |
 | Baseline | Record an introduction or read an original passage, play it back, save it | Real |
-| Daily practice | One short exercise chosen from your goal and your last measured result | Real |
+| Lessons | Fifteen short original lessons (first impressions, steady voice, confidence without bluffing, speaking up, storytelling, body language, reading the room, tough feedback, difficult people, saying no, interrupting, defusing conflict, listening, small talk, pausing). Each has a two-minute note, three steps, a recorded exercise and a checklist | Real. Two lessons (body language, reading people) are marked self-check because audio cannot observe them. With an Anthropic key the coach checks each checklist item against the transcript with quotes |
+| Daily drill | One short exercise chosen from your goal and your last measured result | Real |
 | Feedback | Pauses, silence and levels measured from the audio in the browser; pace and filler words from the transcript, with quoted examples and one next step | Audio measures real. Transcript: browser speech recognition where supported, otherwise a **labelled demo sample**. Tip: rule-based |
 | Retry and compare | Record again, play both attempts, see the measures side by side | Real |
 | Progress | Saved sessions, delete controls, pace / fillers / pauses over time | Real |
 | Role-play | A stakeholder asks why the launch slipped; record, transcribe, partner responds, three exchanges, debrief | Partner is **scripted and labelled** without an Anthropic key |
 
-Every number on screen carries its source ("from your audio", "from transcript", "from demo transcript"). Nothing is presented as audio analysis unless it came from the audio.
+Measures: pace, filler words, hedging phrases, audible pauses, longest pause, time to first word, speaking time. Every number on screen carries its source ("from your audio", "from transcript", "from demo transcript"). Nothing is presented as audio analysis unless it came from the audio.
 
 ## Run it on your own computer (no hosting, no account)
 
